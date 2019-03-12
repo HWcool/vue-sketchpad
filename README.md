@@ -1,8 +1,10 @@
 # sketchpad
 
 >使用vue.js和fabric.js构建的web画板，中间使用vuex来做状态的控制，目前支持画箭头、虚线、矩形、原型、文字等功能，删除功能和回退功能待开发中
+
 效果图如下：
 ![](src/assets/img.png)
+
 ### Build Setup
 
 ``` bash
