@@ -61,6 +61,14 @@
             icon: ' icon-remove'
           },
           {
+            name: 'undo',
+            icon: ' icon-huitui'
+          },
+          {
+            name: 'redo',
+            icon: ' icon-xiangqian'
+          },
+          {
             name: 'reset',
             icon: ' icon-reset'
           },
@@ -69,6 +77,8 @@
         mouseTo:{},
         moveCount: 1,
         doDrawing: false,
+        redo: [],
+        controlFlag: false,
         drawingObject: null, //绘制对象
         drawColor: '#E34F51',
         drawWidth: 2,
@@ -133,6 +143,10 @@
           },
           'object:added': (e)=>{
             let object = e.target;
+            if(!this.controlFlag) {
+              this.redo = []
+            }
+            this.controlFlag = false
           },
           'object:modified':(e)=> {
             e.target.opacity = 1;
@@ -283,6 +297,19 @@
             this.canvasObj.skipTargetFind = false
             this.canvasObj.selectable = true
             this.canvasObj.selection = true
+            break;
+          case 'redo':
+            if(this.redo.length > 0) {
+              this.controlFlag = true
+              this.canvasObj.add(this.redo.pop())
+              this.canvasObj.renderAll()
+            }
+            break;
+          case 'undo': 
+            if(this.canvasObj._objects.length >0) {
+              this.redo.push(this.canvasObj._objects.pop())
+              this.canvasObj.renderAll()
+            } 
             break;
           default:
             // statements_def'
