@@ -18,8 +18,6 @@ body,html{
 }
 body{
 	background: #f4f5f5;
-  padding: 0 50px;
-  overflow: hidden;
 }
 #app {
   height: 100%;

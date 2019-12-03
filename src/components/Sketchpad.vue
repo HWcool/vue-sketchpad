@@ -1,13 +1,19 @@
 <template>
   <div class="wraper" ref="wraper">
     <div class="canvas-wraper">
-      <canvas id="canvas"></canvas>
+      <canvas id="canvas" ref="canvas"></canvas>
     </div>
     <div class="controlPanel">
-      <div :class="[initIdx==idx ? 'contro-item active' : 'contro-item']" v-for="(item,idx) in toolsArr" :key="idx" 
-          @click="handleTools(item, idx)">
+      <div 
+        :class="[initIdx==idx ? 'contro-item active' : 'contro-item']" 
+        v-for="(item,idx) in toolsArr" :key="idx"
+        @click="handleTools(item, idx)">
         <i :class="'iconfont' + item.icon"></i>
       </div>
+    </div>
+    <div class="download">
+      <button type="button" :disabled="done" @click="downLoadImage">转换为base64并预览</button>
+      <img :src="imageBase64" v-show="imageBase64!=''" alt="">
     </div>
   </div>
 </template>
@@ -17,7 +23,8 @@
     data() {
       return{
         currentTool: '',
-        canvasObj: null,
+        done: false,
+        fabricObj: null,
         initIdx: 0,
         toolsArr: [
           {
@@ -77,136 +84,215 @@
         mouseTo:{},
         moveCount: 1,
         doDrawing: false,
-        redo: [],
-        controlFlag: false,
+        fabricHistoryJson: [],
+        mods: 0,
         drawingObject: null, //绘制对象
         drawColor: '#E34F51',
         drawWidth: 2,
-        zoom: window.zoom ? window.zoom : 1
+        imageBase64: '',
+        zoom: window.zoom ? window.zoom : 1,
       }
-    },
-    created() {
-      this.$store.commit('TOOGLE_TOOLS', 'pencil')
     },
     mounted() {
       //初始化canvas 
-      setTimeout( ()=>{
-        this.initCanvas()
-      },16)
+      this.initCanvas()
     },
     computed:{
-      canvasHeight(){
-        return window.innerHeight - 62
-      },
       canvasWidth() {
-        return window.innerWidth - 100
+        return window.innerWidth
       }
     },
     methods:{
       initCanvas() {
         let _this = this
-        this.canvasObj = new fabric.Canvas('canvas',{
+        this.fabricObj = new fabric.Canvas('canvas',{
           isDrawingMode: true,
           selectable: false,
-          selection: false
+          selection: false,
+          devicePixelRatio:true, //Retina 高清屏 屏幕支持
         })
-        this.canvasObj.freeDrawingBrush.color = '#E34F51'
-        this.canvasObj.freeDrawingBrush.width = 2
-        this.canvasObj.setWidth(this.canvasWidth)
-        this.canvasObj.setHeight(this.canvasHeight)
+        this.fabricObj.freeDrawingBrush.color = '#E34F51'
+        this.fabricObj.freeDrawingBrush.width = 2
+        this.fabricObj.setWidth(this.canvasWidth)
+        this.fabricObj.setHeight(500)
+        this.fabricObj.add(
+          new fabric.Rect({ top: 100, left: 100, width: 50, height: 50, fill: '#f55' }),
+          new fabric.Circle({ top: 140, left: 230, radius: 75, fill: 'green' }),
+          new fabric.Triangle({ top: 300, left: 210, width: 100, height: 100, fill: 'blue' }),
+        );
         //绑定画板事件
-        this.canvasObj.on({
+        this.fabricObjAddEvent()
+      },
+      //时间监听
+      fabricObjAddEvent() {
+        this.fabricObj.on({
           'mouse:down': (o)=> {
-            this.mouseFrom.x = o.e.offsetX;
-            this.mouseFrom.y = o.e.offsetY;
+            this.mouseFrom.x = o.pointer.x;
+            this.mouseFrom.y = o.pointer.y;
             this.doDrawing = true;
+            if(this.currentTool=='text') {
+              this.drawText()
+            }        
           },
           'mouse:up': (o)=> {
-            this.mouseTo.x = o.e.offsetX;
-            this.mouseTo.y = o.e.offsetY;
+            this.mouseTo.x = o.pointer.x;
+            this.mouseTo.y = o.pointer.y;
             this.drawingObject = null;
             this.moveCount = 1;
             this.doDrawing = false;
+            this.updateModifications(true);
           },
           'mouse:move': (o)=> {
-            if (_this.moveCount % 2 && !_this.doDrawing) {
+            if (this.moveCount % 2 && !this.doDrawing) {
               //减少绘制频率
               return;
             }
             this.moveCount++;
-            this.mouseTo.x = o.e.offsetX;
-            this.mouseTo.y = o.e.offsetY;
+            this.mouseTo.x = o.pointer.x;
+            this.mouseTo.y = o.pointer.y;;
             this.drawing();
           },
+          //对象移动时间
           'object:moving': (e)=> {
             e.target.opacity = 0.5;
           },
+          //增加对象
           'object:added': (e)=>{
-            let object = e.target;
-            if(!this.controlFlag) {
-              this.redo = []
-            }
-            this.controlFlag = false
+            // debugger
           },
           'object:modified':(e)=> {
             e.target.opacity = 1;
             let object = e.target;
+            this.updateModifications(true)
+          },
+          'selection:created': (e)=>{
+            if (e.target._objects) {
+              //多选删除
+              var etCount = e.target._objects.length;
+              for (var etindex = 0; etindex < etCount; etindex++) {
+                this.fabricObj.remove(e.target._objects[etindex]);
+              }
+            } else {
+              //单选删除
+              this.fabricObj.remove(e.target);
+            }
+            this.fabricObj.discardActiveObject(); //清楚选中框
+            this.updateModifications(true) 
           },
         });
+      },
+      //储存历史记录
+      updateModifications(savehistory) {
+        if(savehistory==true) {
+          this.fabricHistoryJson.push(JSON.stringify(this.fabricObj))
+        }
+      },
+      //canvas 历史后退
+      undo() {
+        let state = this.fabricHistoryJson
+        if(this.mods < state.length) {
+          this.fabricObj.clear().renderAll();
+          this.fabricObj.loadFromJSON(state[state.length - 1 - this.mods - 1]);
+          this.fabricObj.renderAll();
+          this.mods += 1;
+        }
+      },
+      //前进
+      redo() {
+        let state = this.fabricHistoryJson
+        if (this.mods > 0) {
+          this.fabricObj.clear().renderAll();
+          this.fabricObj.loadFromJSON(state[state.length - 1 - this.mods + 1]);
+          this.fabricObj.renderAll();
+          this.mods -= 1;
+        }
       },
       transformMouse(mouseX, mouseY) {
         return { x: mouseX / this.zoom, y: mouseY / this.zoom };
       },
       resetObj() {
-        this.canvasObj.isDrawingMode = false
-        this.canvasObj.selectable = false
-        this.canvasObj.selection = false
-        this.canvasObj.skipTargetFind = true
+        this.fabricObj.selectable = false
+        this.fabricObj.selection = false
+        this.fabricObj.skipTargetFind = true
+        //清除文字对象
+        if(this.textboxObj) {
+          this.textboxObj.exitEditing();
+          this.textboxObj = null;
+        }
       },
       handleTools(tools, idx) {
         this.initIdx = idx;
-        this.$store.commit('TOOGLE_TOOLS', tools.name)
-        if(tools.name != 'reset') {
-          this.drawing()
-        } else if(tools.name === 'reset'){
-          this.canvasObj.clear()
+        this.currentTool = tools.name;
+        this.fabricObj.isDrawingMode = false;
+        this.resetObj()
+        switch(tools.name) {
+          case 'pencil':
+            this.fabricObj.isDrawingMode = true;
+            break;
+          case 'remove':
+            this.fabricObj.selection = true
+            this.fabricObj.skipTargetFind = false
+            this.fabricObj.selectable = true
+            break;
+          case 'reset':
+            this.fabricObj.clear();
+            break;
+          case 'redo':
+            this.redo();
+            break;
+          case 'undo':
+            this.undo();
+            break;     
+          default:
+            break; 
         }
+      },
+      //绘制文字对象
+      drawText() {
+        this.textboxObj = new fabric.Textbox(" ", {
+          left: this.mouseFrom.x,
+          top: this.mouseFrom.y,
+          width: 220,
+          fontSize: 18,
+          fill: this.drawColor,
+          hasControls: true
+        });
+        this.fabricObj.add(this.textboxObj);
+        this.textboxObj.enterEditing();
+        this.textboxObj.hiddenTextarea.focus();
+        this.updateModifications(true)
       },
       drawing() {
         let _this = this;
         if(this.drawingObject) {
-          this.canvasObj.remove(this.drawingObject)
+          this.fabricObj.remove(this.drawingObject)
         }
-        let canvasObject = null
+        let fabricObject = null
         switch (this.currentTool) {
           case 'pencil':
-            this.canvasObj.isDrawingMode = true
+            this.fabricObj.isDrawingMode = true
             break;
           case 'line':
-            this.resetObj()
-            canvasObject = new fabric.Line([this.mouseFrom.x,this.mouseFrom.y,this.mouseTo.x,this.mouseTo.y],{
+            fabricObject = new fabric.Line([this.mouseFrom.x,this.mouseFrom.y,this.mouseTo.x,this.mouseTo.y],{
               stroke: this.drawColor,
               strokeWidth: this.drawWidth
             }) 
             break;
           case 'arrow':
-            this.resetObj()
-            canvasObject = new fabric.Path(this.drawArrow(this.mouseFrom.x, this.mouseFrom.y, this.mouseTo.x, this.mouseTo.y, 17.5, 17.5), {
+            fabricObject = new fabric.Path(this.drawArrow(this.mouseFrom.x, this.mouseFrom.y, this.mouseTo.x, this.mouseTo.y, 17.5, 17.5), {
               stroke: this.drawColor,
               fill: "rgba(255,255,255,0)",
               strokeWidth: this.drawWidth
             });
             break;
           case 'xuxian': //doshed line
-            this.resetObj()
-            canvasObject = new fabric.Line([this.mouseFrom.x, this.mouseFrom.y, this.mouseTo.x, this.mouseTo.y],{
+            fabricObject = new fabric.Line([this.mouseFrom.x, this.mouseFrom.y, this.mouseTo.x, this.mouseTo.y],{
               strokeDashArray: [10, 3],
               stroke: this.drawColor,
               strokeWidth: this.drawWidth
             })
             break;
           case 'juxing': //矩形
-            this.resetObj()
             let path =  "M " +
               this.mouseFrom.x +
               " " +
@@ -228,7 +314,7 @@
               " " +
               this.mouseFrom.y +
               " z";
-            canvasObject = new fabric.Path(path, {
+            fabricObject = new fabric.Path(path, {
               left: this.mouseFrom.x,
               top: this.mouseFrom.y,
               stroke: this.drawColor,
@@ -237,9 +323,8 @@
             });
             break;
           case "cricle": //正圆
-            this.resetObj()
             let radius = Math.sqrt((this.mouseTo.x - this.mouseFrom.x) * (this.mouseTo.x - this.mouseFrom.x) + (this.mouseTo.y - this.mouseFrom.y) * (this.mouseTo.y - this.mouseFrom.y)) / 2;
-            canvasObject = new fabric.Circle({
+            fabricObject = new fabric.Circle({
               left: this.mouseFrom.x,
               top: this.mouseFrom.y,
               stroke: this.drawColor,
@@ -249,11 +334,10 @@
             });
             break;
           case "ellipse": //椭圆
-            this.resetObj()
             let left = this.mouseFrom.x;
             let top = this.mouseFrom.y;
             let ellipse = Math.sqrt((this.mouseTo.x - left) * (this.mouseTo.x - left) + (this.mouseTo.y - top) * (this.mouseTo.y - top)) / 2;
-            canvasObject = new fabric.Ellipse({
+            fabricObject = new fabric.Ellipse({
               left: left,
               top: top,
               stroke: this.drawColor,
@@ -266,9 +350,8 @@
             });
             break;
           case "equilateral": //等边三角形
-            this.resetObj()
             let height = this.mouseTo.y - this.mouseFrom.y;
-            canvasObject = new fabric.Triangle({
+            fabricObject = new fabric.Triangle({
               top: this.mouseFrom.y,
               left: this.mouseFrom.x,
               width: Math.sqrt(Math.pow(height, 2) + Math.pow(height / 2.0, 2)),
@@ -278,46 +361,15 @@
               fill: "rgba(255,255,255,0)"
             });
             break;
-          case "text":
-            this.resetObj()
-            let textbox = new fabric.Textbox("", {
-              left: this.mouseFrom.x,
-              top: this.mouseFrom.y,
-              width: 150,
-              fontSize: 18,
-              borderColor: "#2c2c2c",
-              fill: this.drawColor,
-              hasControls: false
-            });
-            this.canvasObj.add(textbox);
-            textbox.enterEditing();
-            // textbox.hiddenTextarea.focus();
-            break; 
           case 'remove':
-            this.canvasObj.skipTargetFind = false
-            this.canvasObj.selectable = true
-            this.canvasObj.selection = true
-            break;
-          case 'redo':
-            if(this.redo.length > 0) {
-              this.controlFlag = true
-              this.canvasObj.add(this.redo.pop())
-              this.canvasObj.renderAll()
-            }
-            break;
-          case 'undo': 
-            if(this.canvasObj._objects.length >0) {
-              this.redo.push(this.canvasObj._objects.pop())
-              this.canvasObj.renderAll()
-            } 
-            break;
+            break;   
           default:
             // statements_def'
             break;
         }
-        if(canvasObject) {
-          this.canvasObj.add(canvasObject)
-          this.drawingObject = canvasObject;
+        if(fabricObject) {
+          this.fabricObj.add(fabricObject)
+          this.drawingObject = fabricObject;
         }
       }, 
       //书写箭头的方法
@@ -344,38 +396,40 @@
         arrowY = toY + botY;
         path += " L " + arrowX + " " + arrowY;
         return path;
-      }
+      },
+      downLoadImage() {
+        this.done = true
+        //生成双倍像素比的图片
+        let base64URl = this.fabricObj.toDataURL({
+          formart: 'png',
+          multiplier: 2
+        })
+        this.imageBase64 = base64URl
+        this.done = false
+      },
     },
-    watch:{
-      '$store.state.drawType': function() {
-        this.currentTool = this.$store.state.drawType
-      }
-    }
   }
 </script>
 
-<style scrped lang="scss">
+<style lang="scss" scoped>
   .wraper{
     position: relative;
     width: 100%;
     height: 100%;
-    margin: 0 auto;
     .canvas-wraper{
-      height: calc(100% - 60px);
+      height: 50%;
       width: 100%;
-      background: url(../assets/001.jpg) repeat;
+      margin-bottom: 10px;
       overflow: hidden;
     }
     .controlPanel{
-      position: absolute;
-      left: 0;
-      bottom: 20px;
       width: 100%;
       height: 62px;
       background: #ddd;
       display: flex;
       justify-content: center;
-      align-items: center;    
+      align-items: center;
+      margin-bottom: 15px;
       .contro-item{
         flex-basis: 100px;
         border-right: 1px solid #dad7d9;
@@ -396,6 +450,10 @@
         }
       }
     }
+    .download{
+      img{
+        width: 100%;
+      }
+    }
   }
-
 </style>
