@@ -5,7 +5,7 @@
     </div>
     <div class="controlPanel">
       <div 
-        :class="[initIdx==idx ? 'contro-item active' : 'contro-item']" 
+        :class="[initIdx == idx ? 'contro-item active' : 'contro-item']" 
         v-for="(item,idx) in toolsArr" :key="idx"
         @click="handleTools(item, idx)">
         <i :class="'iconfont' + item.icon"></i>
@@ -40,7 +40,7 @@
             icon: ' icon-arrow'
           },
           {
-            name: 'xuxian',
+            name: 'dashedline',
             icon: ' icon-xuxian'
           },
           {
@@ -48,11 +48,11 @@
             icon: ' icon-ziti'
           },
           {
-            name: 'juxing',
+            name: 'rectangle',
             icon: ' icon-juxing'
           },
           {
-            name: 'cricle',
+            name: 'circle',
             icon: ' icon-yuanxing'
           },
           {
@@ -104,7 +104,6 @@
     },
     methods:{
       initCanvas() {
-        let _this = this
         this.fabricObj = new fabric.Canvas('canvas',{
           isDrawingMode: true,
           selectable: false,
@@ -119,7 +118,7 @@
           new fabric.Rect({ top: 100, left: 100, width: 50, height: 50, fill: '#f55' }),
           new fabric.Circle({ top: 140, left: 230, radius: 75, fill: 'green' }),
           new fabric.Triangle({ top: 300, left: 210, width: 100, height: 100, fill: 'blue' }),
-        );
+        )
         //绑定画板事件
         this.fabricObjAddEvent()
       },
@@ -145,11 +144,11 @@
           'mouse:move': (o)=> {
             if (this.moveCount % 2 && !this.doDrawing) {
               //减少绘制频率
-              return;
+              return
             }
             this.moveCount++;
             this.mouseTo.x = o.pointer.x;
-            this.mouseTo.y = o.pointer.y;;
+            this.mouseTo.y = o.pointer.y;
             this.drawing();
           },
           //对象移动时间
@@ -157,12 +156,12 @@
             e.target.opacity = 0.5;
           },
           //增加对象
-          'object:added': (e)=>{
+          'object:added': ()=>{
             // debugger
           },
           'object:modified':(e)=> {
             e.target.opacity = 1;
-            let object = e.target;
+            // let object = e.target;
             this.updateModifications(true)
           },
           'selection:created': (e)=>{
@@ -263,7 +262,6 @@
         this.updateModifications(true)
       },
       drawing() {
-        let _this = this;
         if(this.drawingObject) {
           this.fabricObj.remove(this.drawingObject)
         }
@@ -273,93 +271,35 @@
             this.fabricObj.isDrawingMode = true
             break;
           case 'line':
-            fabricObject = new fabric.Line([this.mouseFrom.x,this.mouseFrom.y,this.mouseTo.x,this.mouseTo.y],{
+            fabricObject = new fabric.Line([this.mouseFrom.x, this.mouseFrom.y, this.mouseTo.x, this.mouseTo.y],{
               stroke: this.drawColor,
               strokeWidth: this.drawWidth
             }) 
             break;
           case 'arrow':
-            fabricObject = new fabric.Path(this.drawArrow(this.mouseFrom.x, this.mouseFrom.y, this.mouseTo.x, this.mouseTo.y, 17.5, 17.5), {
+            fabricObject = new fabric.Path(this.drawArrow(this.mouseFrom.x, this.mouseFrom.y, this.mouseTo.x, this.mouseTo.y, 15.5, 15.5), {
               stroke: this.drawColor,
               fill: "rgba(255,255,255,0)",
               strokeWidth: this.drawWidth
             });
             break;
-          case 'xuxian': //doshed line
-            fabricObject = new fabric.Line([this.mouseFrom.x, this.mouseFrom.y, this.mouseTo.x, this.mouseTo.y],{
-              strokeDashArray: [10, 3],
-              stroke: this.drawColor,
-              strokeWidth: this.drawWidth
-            })
+          case 'dashedline': 
+            // doshed line
+            fabricObject = this.drawDoshedLine()
             break;
-          case 'juxing': //矩形
-            let path =  "M " +
-              this.mouseFrom.x +
-              " " +
-              this.mouseFrom.y +
-              " L " +
-              this.mouseTo.x +
-              " " +
-              this.mouseFrom.y +
-              " L " +
-              this.mouseTo.x +
-              " " +
-              this.mouseTo.y +
-              " L " +
-              this.mouseFrom.x +
-              " " +
-              this.mouseTo.y +
-              " L " +
-              this.mouseFrom.x +
-              " " +
-              this.mouseFrom.y +
-              " z";
-            fabricObject = new fabric.Path(path, {
-              left: this.mouseFrom.x,
-              top: this.mouseFrom.y,
-              stroke: this.drawColor,
-              strokeWidth: this.drawWidth,
-              fill: "rgba(255, 255, 255, 0)"
-            });
+          case 'rectangle': 
+            // 矩形
+            fabricObject = this.drawRectangle()
             break;
-          case "cricle": //正圆
-            let radius = Math.sqrt((this.mouseTo.x - this.mouseFrom.x) * (this.mouseTo.x - this.mouseFrom.x) + (this.mouseTo.y - this.mouseFrom.y) * (this.mouseTo.y - this.mouseFrom.y)) / 2;
-            fabricObject = new fabric.Circle({
-              left: this.mouseFrom.x,
-              top: this.mouseFrom.y,
-              stroke: this.drawColor,
-              fill: "rgba(255, 255, 255, 0)",
-              radius: radius,
-              strokeWidth: this.drawWidth
-            });
+          case "circle": //正圆
+            fabricObject = this.drawCircle()
             break;
-          case "ellipse": //椭圆
-            let left = this.mouseFrom.x;
-            let top = this.mouseFrom.y;
-            let ellipse = Math.sqrt((this.mouseTo.x - left) * (this.mouseTo.x - left) + (this.mouseTo.y - top) * (this.mouseTo.y - top)) / 2;
-            fabricObject = new fabric.Ellipse({
-              left: left,
-              top: top,
-              stroke: this.drawColor,
-              fill: "rgba(255, 255, 255, 0)",
-              originX: "center",
-              originY: "center",
-              rx: Math.abs(left - this.mouseTo.x),
-              ry: Math.abs(top - this.mouseTo.y),
-              strokeWidth: this.drawWidth
-            });
+          case "ellipse": 
+            // 椭圆
+            fabricObject = this.drawEllipse()
             break;
           case "equilateral": //等边三角形
-            let height = this.mouseTo.y - this.mouseFrom.y;
-            fabricObject = new fabric.Triangle({
-              top: this.mouseFrom.y,
-              left: this.mouseFrom.x,
-              width: Math.sqrt(Math.pow(height, 2) + Math.pow(height / 2.0, 2)),
-              height: height,
-              stroke: this.drawColor,
-              strokeWidth: this.drawWidth,
-              fill: "rgba(255,255,255,0)"
-            });
+            fabricObject = this.drawTriangle()
             break;
           case 'remove':
             break;   
@@ -368,10 +308,74 @@
             break;
         }
         if(fabricObject) {
-          this.fabricObj.add(fabricObject)
-          this.drawingObject = fabricObject;
+          this.$nextTick(() => {
+            this.fabricObj.add(fabricObject)
+            this.drawingObject = fabricObject
+          })
         }
-      }, 
+      },
+      // dashed line
+      drawDoshedLine() {
+        return new fabric.Line([this.mouseFrom.x, this.mouseFrom.y, this.mouseTo.x, this.mouseTo.y],{
+          strokeDashArray: [10, 3],
+          stroke: this.drawColor,
+          strokeWidth: this.drawWidth
+        })
+      },
+      // circle
+      drawCircle() {
+        let radius = Math.sqrt((this.mouseTo.x - this.mouseFrom.x) * (this.mouseTo.x - this.mouseFrom.x) + (this.mouseTo.y - this.mouseFrom.y) * (this.mouseTo.y - this.mouseFrom.y)) / 2;
+         return new fabric.Circle({
+          left: this.mouseFrom.x,
+          top: this.mouseFrom.y,
+          stroke: this.drawColor,
+          fill: "rgba(255, 255, 255, 0)",
+          radius: radius,
+          strokeWidth: this.drawWidth
+        });
+      },
+      // triangle
+      drawTriangle() {
+        let height = this.mouseTo.y - this.mouseFrom.y
+        return new fabric.Triangle({
+          top: this.mouseFrom.y,
+          left: this.mouseFrom.x,
+          width: Math.sqrt(Math.pow(height, 2) + Math.pow(height / 2.0, 2)),
+          height: height,
+          stroke: this.drawColor,
+          strokeWidth: this.drawWidth,
+          fill: "rgba(255,255,255,0)"
+        });
+      },
+      // ellipse
+      drawEllipse() {
+        let left = this.mouseFrom.x
+        let top = this.mouseFrom.y
+        // let ellipse = Math.sqrt((this.mouseTo.x - left) * (this.mouseTo.x - left) + (this.mouseTo.y - top) * (this.mouseTo.y - top)) / 2;
+        return new fabric.Ellipse({
+          left: left,
+          top: top,
+          stroke: this.drawColor,
+          fill: "rgba(255, 255, 255, 0)",
+          originX: "center",
+          originY: "center",
+          rx: Math.abs(left - this.mouseTo.x),
+          ry: Math.abs(top - this.mouseTo.y),
+          strokeWidth: this.drawWidth
+        });
+      },
+      // rectangle
+      drawRectangle() {
+        return new fabric.Rect({
+          left: this.mouseFrom.x,
+          top: this.mouseFrom.y,
+          width: this.mouseTo.x - this.mouseFrom.x,
+          height: this.mouseTo.y - this.mouseFrom.y,
+          fill: "rgba(255, 255, 255, 0)",
+          stroke: this.drawColor,
+          strokeWidth: this.drawWidth
+        });
+      },
       //书写箭头的方法
       drawArrow(fromX, fromY, toX, toY, theta, headlen) {
         theta = typeof theta != "undefined" ? theta : 30;
@@ -421,6 +425,7 @@
       width: 100%;
       margin-bottom: 10px;
       overflow: hidden;
+      background: url('../assets/001.jpg') repeat;
     }
     .controlPanel{
       width: 100%;

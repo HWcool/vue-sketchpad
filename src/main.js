@@ -1,12 +1,9 @@
 import Vue from 'vue'
-import App from './App'
-import router from './router'
-
+import App from './App.vue'
+import './assets/app.css'
+import './assets/font/iconfont.css'
 Vue.config.productionTip = false
 
-/* eslint-disable no-new */
 new Vue({
-  el: '#app',
-  router,
-  render: h => h(App)
-})
+  render: h => h(App),
+}).$mount('#app')
