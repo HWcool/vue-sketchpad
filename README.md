@@ -1,11 +1,10 @@
 # sketchpad
 
 >使用vue.js和fabric.js构建的web画板，目前支持画箭头、虚线、矩形、圆型、三角形、文字等功能
-
+[在线预览](blog.hjplay.cn/vue-sketchpad/)
 效果图如下：
 !["效果图"](src/assets/img.png)
 
-[在线预览](blog.hjplay.cn/vue-sketchpad/)
 
 - [x] 直线
 - [x] 箭头
