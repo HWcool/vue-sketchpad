@@ -5,6 +5,8 @@
 效果图如下：
 !["效果图"](src/assets/img.png)
 
+![在线预览](blog.hjplay.cn/vue-sketchpad/)
+
 - [x] 直线
 - [x] 箭头
 - [x] 虚线
