@@ -1,8 +1,6 @@
 <template>
   <div class="wraper" ref="wraper">
-    <div class="canvas-wraper">
-      <canvas id="canvas" ref="canvas"></canvas>
-    </div>
+  
     <div class="controlPanel">
       <div 
         :class="[initIdx == idx ? 'contro-item active' : 'contro-item']" 
@@ -10,10 +8,13 @@
         @click="handleTools(item, idx)">
         <i :class="'iconfont' + item.icon"></i>
       </div>
+
+       <img :src="imageBase64" v-show="imageBase64!=''" alt="">
+       <a ref="download" v-show="false" :href="downloadUrl" :download="downloadfilename"></a>
     </div>
-    <div class="download">
-      <button type="button" :disabled="done" @click="downLoadImage">转换为base64并预览</button>
-      <img :src="imageBase64" v-show="imageBase64!=''" alt="">
+
+     <div class="canvas-wraper">
+      <canvas id="canvas" ref="canvas"></canvas>
     </div>
   </div>
 </template>
@@ -79,6 +80,10 @@
             name: 'reset',
             icon: ' icon-reset'
           },
+          {
+            name: 'download',
+            icon: ' icon-list'
+          },
         ],
         mouseFrom:{},
         mouseTo:{},
@@ -89,7 +94,8 @@
         drawingObject: null, //绘制对象
         drawColor: '#E34F51',
         drawWidth: 2,
-        imageBase64: '',
+        downloadUrl: null,
+        downloadfilename: null,
         zoom: window.zoom ? window.zoom : 1,
       }
     },
@@ -100,6 +106,9 @@
     computed:{
       canvasWidth() {
         return window.innerWidth
+      },
+      canvasHeight() {
+        return window.innerHeight
       }
     },
     methods:{
@@ -112,8 +121,8 @@
         })
         this.fabricObj.freeDrawingBrush.color = '#E34F51'
         this.fabricObj.freeDrawingBrush.width = 2
-        this.fabricObj.setWidth(this.canvasWidth)
-        this.fabricObj.setHeight(500)
+        this.fabricObj.setWidth(this.canvasWidth-60)
+        this.fabricObj.setHeight(this.canvasHeight)
         this.fabricObj.add(
           new fabric.Rect({ top: 100, left: 100, width: 50, height: 50, fill: '#f55' }),
           new fabric.Circle({ top: 140, left: 230, radius: 75, fill: 'green' }),
@@ -242,6 +251,9 @@
           case 'undo':
             this.undo();
             break;     
+          case 'download':
+             this.downLoadImage();
+            break;  
           default:
             break; 
         }
@@ -304,7 +316,7 @@
           case 'remove':
             break;   
           default:
-            // statements_def'
+            // statements_def'           
             break;
         }
         if(fabricObject) {
@@ -401,16 +413,20 @@
         path += " L " + arrowX + " " + arrowY;
         return path;
       },
-      downLoadImage() {
-        this.done = true
-        //生成双倍像素比的图片
+      downLoadImage () {
         let base64URl = this.fabricObj.toDataURL({
           formart: 'png',
           multiplier: 2
         })
-        this.imageBase64 = base64URl
-        this.done = false
-      },
+        let timestamp = new Date().getTime()
+        let name = 'export' + timestamp + '.png'
+        this.downloadUrl = base64URl
+        this.downloadfilename = name
+        setTimeout(() => {
+          this.$refs.download.click()
+        }, 200)
+      }
+    
     },
   }
 </script>
@@ -420,27 +436,20 @@
     position: relative;
     width: 100%;
     height: 100%;
+    display: table;
     .canvas-wraper{
-      height: 50%;
+      height: 100%;
       width: 100%;
-      margin-bottom: 10px;
       overflow: hidden;
       background: url('../assets/001.jpg') repeat;
     }
     .controlPanel{
-      width: 100%;
-      height: 62px;
-      background: #ddd;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin-bottom: 15px;
+       width: 10%;
+       display: table-cell;
+       vertical-align: middle;
+       border: 1px solid #777;
+       text-align: center;
       .contro-item{
-        flex-basis: 100px;
-        border-right: 1px solid #dad7d9;
-        text-align: center;
-        cursor: pointer;
-        background: #fefefe;
         i{
           font-size: 38px;
           line-height: 62px;
@@ -455,10 +464,6 @@
         }
       }
     }
-    .download{
-      img{
-        width: 100%;
-      }
-    }
+
   }
 </style>
